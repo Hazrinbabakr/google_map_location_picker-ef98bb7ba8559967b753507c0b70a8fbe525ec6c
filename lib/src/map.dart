@@ -201,7 +201,7 @@ class MapPickerState extends State<MapPicker> {
                 southwest: LatLng(36.126212910920835, 43.869449235498905)
             )),
             minMaxZoomPreference: MinMaxZoomPreference(
-                14,30
+                13,30
             ),
           ),
           _MapFabs(
