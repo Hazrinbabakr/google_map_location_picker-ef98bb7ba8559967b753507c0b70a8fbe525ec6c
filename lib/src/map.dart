@@ -197,8 +197,8 @@ class MapPickerState extends State<MapPicker> {
             mapType: _currentMapType,
             myLocationEnabled: true,
             cameraTargetBounds: CameraTargetBounds(LatLngBounds(
-                northeast: LatLng(36.27756845983002, 44.13078088313341),
-                southwest: LatLng(36.126212910920835, 43.869449235498905)
+                northeast: LatLng(36.339268, 44.189135),
+                southwest: LatLng(36.114879, 43.857588)
             )),
             minMaxZoomPreference: MinMaxZoomPreference(
                 13,30
