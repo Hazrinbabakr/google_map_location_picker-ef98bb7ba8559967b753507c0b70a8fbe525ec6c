@@ -40,6 +40,9 @@ class LocationPicker extends StatefulWidget {
     this.countries,
     this.language,
     this.desiredAccuracy,
+    this.cameraTargetBounds,
+    this.minMaxZoomPreference,
+    this.validate
   });
 
   final String apiKey;
@@ -67,6 +70,10 @@ class LocationPicker extends StatefulWidget {
 
   final LocationAccuracy desiredAccuracy;
 
+  final CameraTargetBounds cameraTargetBounds;
+  final MinMaxZoomPreference minMaxZoomPreference;
+
+  final Function validate;
   @override
   LocationPickerState createState() => LocationPickerState();
 }
@@ -422,6 +429,9 @@ class LocationPickerState extends State<LocationPicker> {
             key: mapKey,
             language: widget.language,
             desiredAccuracy: widget.desiredAccuracy,
+            minMaxZoomPreference:widget.minMaxZoomPreference,
+            cameraTargetBounds:widget.cameraTargetBounds,
+            validate: widget.validate,
           ),
         );
       }),
@@ -459,6 +469,9 @@ Future<LocationResult> showLocationPicker(
   Decoration resultCardDecoration,
   String language = 'en',
   LocationAccuracy desiredAccuracy = LocationAccuracy.best,
+  CameraTargetBounds cameraTargetBounds,
+  MinMaxZoomPreference minMaxZoomPreference,
+  Function validate
 }) async {
   final results = await Navigator.of(context).push(
     MaterialPageRoute<dynamic>(
@@ -484,6 +497,9 @@ Future<LocationResult> showLocationPicker(
           countries: countries,
           language: language,
           desiredAccuracy: desiredAccuracy,
+          minMaxZoomPreference:minMaxZoomPreference,
+          cameraTargetBounds:cameraTargetBounds,
+          validate: validate,
         );
       },
     ),

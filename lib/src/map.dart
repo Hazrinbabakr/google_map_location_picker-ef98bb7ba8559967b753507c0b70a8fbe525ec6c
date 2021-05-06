@@ -19,8 +19,7 @@ import 'model/location_result.dart';
 import 'utils/location_utils.dart';
 
 class MapPicker extends StatefulWidget {
-  const MapPicker(
-    this.apiKey, {
+  const MapPicker(this.apiKey, {
     Key key,
     this.initialCenter,
     this.initialZoom,
@@ -38,6 +37,9 @@ class MapPicker extends StatefulWidget {
     this.resultCardPadding,
     this.language,
     this.desiredAccuracy,
+    this.cameraTargetBounds,
+    this.minMaxZoomPreference,
+    this.validate
   }) : super(key: key);
 
   final String apiKey;
@@ -64,6 +66,10 @@ class MapPicker extends StatefulWidget {
 
   final LocationAccuracy desiredAccuracy;
 
+  final CameraTargetBounds cameraTargetBounds;
+  final MinMaxZoomPreference minMaxZoomPreference;
+  final Function validate;
+
   @override
   MapPickerState createState() => MapPickerState();
 }
@@ -85,7 +91,7 @@ class MapPickerState extends State<MapPicker> {
 
   void _onToggleMapTypePressed() {
     final MapType nextType =
-        MapType.values[(_currentMapType.index + 1) % MapType.values.length];
+    MapType.values[(_currentMapType.index + 1) % MapType.values.length];
 
     setState(() => _currentMapType = nextType);
   }
@@ -95,7 +101,7 @@ class MapPickerState extends State<MapPicker> {
     Position currentPosition;
     try {
       currentPosition =
-          await getCurrentPosition(desiredAccuracy: widget.desiredAccuracy);
+      await getCurrentPosition(desiredAccuracy: widget.desiredAccuracy);
       d("position = $currentPosition");
 
       setState(() => _currentPosition = currentPosition);
@@ -114,7 +120,8 @@ class MapPickerState extends State<MapPicker> {
   }
 
   Future moveToCurrentLocation(LatLng currentLocation) async {
-    d('MapPickerState.moveToCurrentLocation "currentLocation = [$currentLocation]"');
+    d(
+        'MapPickerState.moveToCurrentLocation "currentLocation = [$currentLocation]"');
     final controller = await mapController.future;
     controller.animateCamera(CameraUpdate.newCameraPosition(
       CameraPosition(target: currentLocation, zoom: 16),
@@ -196,13 +203,8 @@ class MapPickerState extends State<MapPicker> {
 //            },
             mapType: _currentMapType,
             myLocationEnabled: true,
-            cameraTargetBounds: CameraTargetBounds(LatLngBounds(
-                northeast: LatLng(36.339268, 44.189135),
-                southwest: LatLng(36.114879, 43.857588)
-            )),
-            minMaxZoomPreference: MinMaxZoomPreference(
-                13,30
-            ),
+            cameraTargetBounds: widget.cameraTargetBounds,
+            minMaxZoomPreference: widget.minMaxZoomPreference,
           ),
           _MapFabs(
             myLocationButtonEnabled: widget.myLocationButtonEnabled,
@@ -226,52 +228,65 @@ class MapPickerState extends State<MapPicker> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           child: Consumer<LocationProvider>(
               builder: (context, locationProvider, _) {
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  Flexible(
-                    flex: 20,
-                    child: FutureLoadingBuilder<Map<String, String>>(
-                      future: getAddress(locationProvider.lastIdleLocation),
-                      mutable: true,
-                      loadingIndicator: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          CircularProgressIndicator(),
-                        ],
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      Flexible(
+                        flex: 20,
+                        child: FutureLoadingBuilder<Map<String, String>>(
+                          future: getAddress(locationProvider.lastIdleLocation),
+                          mutable: true,
+                          loadingIndicator: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              CircularProgressIndicator(),
+                            ],
+                          ),
+                          builder: (context, data) {
+                            _address = data["address"];
+                            _placeId = data["placeId"];
+                            return Text(
+                              _address ??
+                                  S
+                                      .of(context)
+                                      ?.unnamedPlace ??
+                                  'Unnamed place',
+                              style: TextStyle(fontSize: 18),
+                            );
+                          },
+                        ),
                       ),
-                      builder: (context, data) {
-                        _address = data["address"];
-                        _placeId = data["placeId"];
-                        return Text(
-                          _address ??
-                              S.of(context)?.unnamedPlace ??
-                              'Unnamed place',
-                          style: TextStyle(fontSize: 18),
-                        );
-                      },
-                    ),
+                      Spacer(),
+                      FloatingActionButton(
+                        onPressed: ()async {
+                          if ( widget.validate != null) {
+                            if (await widget.validate()) {
+                              Navigator.of(context).pop({
+                                'location': LocationResult(
+                                  latLng: locationProvider.lastIdleLocation,
+                                  address: _address,
+                                  placeId: _placeId,
+                                )
+                              });
+                            }
+                          } else
+                            Navigator.of(context).pop({
+                              'location': LocationResult(
+                                latLng: locationProvider.lastIdleLocation,
+                                address: _address,
+                                placeId: _placeId,
+                              )
+                            });
+                        },
+                        child: widget.resultCardConfirmIcon ??
+                            Icon(Icons.arrow_forward),
+                      ),
+                    ],
                   ),
-                  Spacer(),
-                  FloatingActionButton(
-                    onPressed: () {
-                      Navigator.of(context).pop({
-                        'location': LocationResult(
-                          latLng: locationProvider.lastIdleLocation,
-                          address: _address,
-                          placeId: _placeId,
-                        )
-                      });
-                    },
-                    child: widget.resultCardConfirmIcon ??
-                        Icon(Icons.arrow_forward),
-                  ),
-                ],
-              ),
-            );
-          }),
+                );
+              }),
         ),
       ),
     );
@@ -280,11 +295,12 @@ class MapPickerState extends State<MapPicker> {
   Future<Map<String, String>> getAddress(LatLng location) async {
     try {
       final endPoint =
-          'https://maps.googleapis.com/maps/api/geocode/json?latlng=${location?.latitude},${location?.longitude}'
+          'https://maps.googleapis.com/maps/api/geocode/json?latlng=${location
+          ?.latitude},${location?.longitude}'
           '&key=${widget.apiKey}&language=${widget.language}';
 
       var response = jsonDecode((await http.get(endPoint,
-              headers: await LocationUtils.getAppHeaders()))
+          headers: await LocationUtils.getAppHeaders()))
           .body);
 
       return {
@@ -362,14 +378,20 @@ class MapPickerState extends State<MapPicker> {
             return true;
           },
           child: AlertDialog(
-            title: Text(S.of(context)?.access_to_location_denied ??
+            title: Text(S
+                .of(context)
+                ?.access_to_location_denied ??
                 'Access to location denied'),
             content: Text(
-                S.of(context)?.allow_access_to_the_location_services ??
+                S
+                    .of(context)
+                    ?.allow_access_to_the_location_services ??
                     'Allow access to the location services.'),
             actions: <Widget>[
               FlatButton(
-                child: Text(S.of(context)?.ok ?? 'Ok'),
+                child: Text(S
+                    .of(context)
+                    ?.ok ?? 'Ok'),
                 onPressed: () {
                   Navigator.of(context, rootNavigator: true).pop();
                   _initCurrentLocation();
@@ -395,15 +417,19 @@ class MapPickerState extends State<MapPicker> {
             return true;
           },
           child: AlertDialog(
-            title: Text(S.of(context)?.access_to_location_permanently_denied ??
+            title: Text(S
+                .of(context)
+                ?.access_to_location_permanently_denied ??
                 'Access to location permanently denied'),
             content: Text(S
-                    .of(context)
-                    ?.allow_access_to_the_location_services_from_settings ??
+                .of(context)
+                ?.allow_access_to_the_location_services_from_settings ??
                 'Allow access to the location services for this App using the device settings.'),
             actions: <Widget>[
               FlatButton(
-                child: Text(S.of(context)?.ok ?? 'Ok'),
+                child: Text(S
+                    .of(context)
+                    ?.ok ?? 'Ok'),
                 onPressed: () {
                   Navigator.of(context, rootNavigator: true).pop();
                   openAppSettings();
@@ -420,17 +446,21 @@ class MapPickerState extends State<MapPicker> {
   // TODO: 9/12/2020 this is no longer needed, remove in the next release
   Future _checkGps() async {
     if (!(await isLocationServiceEnabled())) {
-      if (Theme.of(context).platform == TargetPlatform.android) {
+      if (Theme
+          .of(context)
+          .platform == TargetPlatform.android) {
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (BuildContext context) {
             return AlertDialog(
-              title: Text(S.of(context)?.cant_get_current_location ??
+              title: Text(S
+                  .of(context)
+                  ?.cant_get_current_location ??
                   "Can't get current location"),
               content: Text(S
-                      .of(context)
-                      ?.please_make_sure_you_enable_gps_and_try_again ??
+                  .of(context)
+                  ?.please_make_sure_you_enable_gps_and_try_again ??
                   'Please make sure you enable GPS and try again'),
               actions: <Widget>[
                 FlatButton(
@@ -459,7 +489,8 @@ class _MapFabs extends StatelessWidget {
     @required this.layersButtonEnabled,
     @required this.onToggleMapTypePressed,
     @required this.onMyLocationPressed,
-  })  : assert(onToggleMapTypePressed != null),
+  })
+      : assert(onToggleMapTypePressed != null),
         super(key: key);
 
   final bool myLocationButtonEnabled;
@@ -472,7 +503,7 @@ class _MapFabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       alignment: Alignment.topRight,
-      margin: const EdgeInsets.only(top: kToolbarHeight + 24, right: 8),
+      margin: const EdgeInsets.only(top: kToolbarHeight + 34, right: 12),
       child: Column(
         children: <Widget>[
           if (layersButtonEnabled)
