@@ -502,8 +502,8 @@ class _MapFabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      alignment: Alignment.topRight,
-      margin: const EdgeInsets.only(top: kToolbarHeight + 34, right: 12),
+      alignment: Alignment.centerRight,
+      margin: const EdgeInsets.only(top: kToolbarHeight + 54, right: 12),
       child: Column(
         children: <Widget>[
           if (layersButtonEnabled)
